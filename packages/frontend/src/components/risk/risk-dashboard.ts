@@ -12,73 +12,68 @@ export class RiskDashboard extends LitElement {
   static styles = [sharedStyles, css`
     :host { display: block; }
     .dashboard {
-      padding: var(--space-4, 1rem);
-      border: 1px solid var(--color-border, #e0e0e0);
-      border-radius: var(--radius-lg, 8px);
-    }
-    .header {
-      font-size: var(--text-xs, 0.75rem);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--color-text-muted, #999);
-      font-weight: 600;
-      margin-bottom: var(--space-4, 1rem);
+      background: var(--color-surface, #2c2c2e);
+      border: 1px solid var(--color-border, rgba(255,255,255,0.08));
+      border-radius: var(--radius-lg, 12px);
+      padding: var(--space-6, 1.5rem);
     }
     .summary {
-      font-size: var(--text-sm, 0.875rem);
+      font-size: var(--text-sm, 0.8125rem);
       line-height: 1.6;
-      color: var(--color-text-secondary, #666);
-      margin: var(--space-4, 1rem) 0;
+      color: var(--color-text-secondary, #a1a1a6);
+      margin: var(--space-5, 1.25rem) 0;
     }
     .factors {
       display: flex;
       flex-direction: column;
-      gap: var(--space-2, 0.5rem);
+      gap: 0;
       margin-top: var(--space-4, 1rem);
     }
     .factor {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: var(--space-2, 0.5rem) 0;
-      border-bottom: 1px solid var(--color-border, #e0e0e0);
-      font-size: var(--text-sm, 0.875rem);
+      padding: var(--space-3, 0.75rem) 0;
+      border-bottom: 1px solid var(--color-border, rgba(255,255,255,0.08));
+      font-size: var(--text-sm, 0.8125rem);
     }
     .factor:last-child { border-bottom: none; }
-    .factor-name { font-weight: 500; }
-    .factor-score {
-      font-family: var(--font-mono, monospace);
-      font-weight: 700;
+    .factor-name {
+      color: var(--color-text, #f5f5f7);
+      font-weight: 400;
     }
-    .factor-desc {
-      font-size: var(--text-xs, 0.75rem);
-      color: var(--color-text-muted, #999);
-      margin-top: 0.125rem;
+    .factor-impact {
+      font-weight: 600;
+      color: var(--color-text, #f5f5f7);
     }
-    .factor-weight {
-      font-size: var(--text-xs, 0.75rem);
-      color: var(--color-text-muted, #999);
-    }
+    .factor-impact.high-impact { color: var(--color-risk-high, #ff3b30); }
+    .factor-impact.medium-impact { color: var(--color-risk-moderate, #ff9f0a); }
+    .factor-impact.low-impact { color: var(--color-text-secondary, #a1a1a6); }
   `];
+
+  private getImpactClass(weight: number): string {
+    if (weight >= 0.3) return 'high-impact';
+    if (weight >= 0.2) return 'medium-impact';
+    return 'low-impact';
+  }
+
+  private getImpactLabel(weight: number): string {
+    if (weight >= 0.3) return 'High impact';
+    if (weight >= 0.2) return 'Medium impact';
+    return 'Low impact';
+  }
 
   render() {
     if (!this.risk) return nothing;
     return html`
       <div class="dashboard">
-        <div class="header">Cancellation Risk Assessment</div>
-        <score-gauge .value=${this.risk.overall} label="Cancellation Risk"></score-gauge>
+        <score-gauge .value=${this.risk.overall} label="Cancellation risk"></score-gauge>
         <div class="summary">${this.risk.summary}</div>
         <div class="factors">
           ${this.risk.factors.map(f => html`
             <div class="factor">
-              <div>
-                <div class="factor-name">${f.name}</div>
-                <div class="factor-desc">${f.description}</div>
-              </div>
-              <div style="text-align:right">
-                <div class="factor-score">${f.score}</div>
-                <div class="factor-weight">${Math.round(f.weight * 100)}% weight</div>
-              </div>
+              <span class="factor-name">${f.name}</span>
+              <span class="factor-impact ${this.getImpactClass(f.weight)}">${this.getImpactLabel(f.weight)}</span>
             </div>
           `)}
         </div>

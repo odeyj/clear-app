@@ -19,50 +19,82 @@ export class RouteMap extends LitElement {
   private markerLayer: L.LayerGroup = L.layerGroup();
   private zoneLayer: L.LayerGroup = L.layerGroup();
 
-  static styles = [
-    unsafeCSS(leafletCss),
-    css`
-      :host {
-        display: flex;
-        flex-direction: column;
-        min-height: 400px;
-        height: 400px;
-        border: 1px solid var(--color-border, #e0e0e0);
-        border-radius: var(--radius-lg, 8px);
-        overflow: hidden;
-        background: var(--color-bg, #fff);
-      }
-      .map-header {
-        flex-shrink: 0;
-        padding: 0.45rem 0.75rem;
-        font-size: 0.6875rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.07em;
-        color: var(--color-text-muted, #737373);
-        background: var(--color-surface, #f8f8f8);
-        border-bottom: 1px solid var(--color-border, #e0e0e0);
-      }
-      .map-panel {
-        flex: 1;
-        min-height: 0;
-        position: relative;
-      }
-      .map-container {
-        width: 100%;
-        height: 100%;
-        min-height: 0;
-      }
-    `,
-  ];
+  // Opt out of Shadow DOM for Leaflet CSS compatibility
+  createRenderRoot() { return this; }
+
+  connectedCallback() {
+    super.connectedCallback();
+    // Guarantee dimensions via inline style (light DOM ignores static styles)
+    this.style.display = 'block';
+    this.style.height = '500px';
+    this.style.borderRadius = '12px';
+    this.style.overflow = 'hidden';
+    this.style.background = '#2c2c2e';
+    this.style.border = '1px solid rgba(255,255,255,0.08)';
+    // Since we use light DOM, inject styles directly
+    if (!document.getElementById('route-map-styles')) {
+      const style = document.createElement('style');
+      style.id = 'route-map-styles';
+      style.textContent = `
+        ${leafletCss}
+        route-map {
+          display: block;
+          height: 500px;
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 12px;
+          overflow: hidden;
+          background: #2c2c2e;
+        }
+        route-map .map-container { width: 100%; height: 100%; }
+        route-map .map-header {
+          flex-shrink: 0;
+          padding: 0.45rem 0.75rem;
+          font-size: 0.6875rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.07em;
+          color: #6e6e73;
+          background: #1c1c1e;
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        route-map .map-panel {
+          flex: 1;
+          min-height: 0;
+          position: relative;
+          height: calc(100% - 30px);
+        }
+        /* Fix leaflet controls for dark theme */
+        route-map .leaflet-control-zoom a {
+          background: #2c2c2e;
+          color: #f5f5f7;
+          border-color: rgba(255,255,255,0.12);
+        }
+        route-map .leaflet-control-zoom a:hover {
+          background: #3a3a3c;
+        }
+        route-map .leaflet-control-attribution {
+          background: rgba(28,28,30,0.8);
+          color: #6e6e73;
+          font-size: 10px;
+        }
+        route-map .leaflet-control-attribution a {
+          color: #a1a1a6;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
 
   firstUpdated() {
     const container = this.renderRoot.querySelector('.map-container') as HTMLElement | null;
     if (!container) return;
 
     this.map = L.map(container, { zoomControl: true }).setView([30, 30], 3);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
+
+    // Dark-themed tile layer matching CLEAR UI
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+      subdomains: 'abcd',
       maxZoom: 18,
     }).addTo(this.map);
 
@@ -70,10 +102,14 @@ export class RouteMap extends LitElement {
     this.markerLayer.addTo(this.map);
     this.zoneLayer.addTo(this.map);
 
+    // Layout may report 0x0 until after paint — retry sizing
     requestAnimationFrame(() => {
       this.map?.invalidateSize();
       this.updateMap();
     });
+    setTimeout(() => {
+      this.map?.invalidateSize();
+    }, 300);
   }
 
   updated(changed: Map<string, unknown>) {
@@ -111,10 +147,10 @@ export class RouteMap extends LitElement {
       L.marker([this.destination.lat, this.destination.lon], { icon: destIcon }).addTo(this.markerLayer);
 
       const riskColors: Record<string, string> = {
-        low: '#22c55e',
-        moderate: '#f59e0b',
-        high: '#ef4444',
-        critical: '#dc2626',
+        low: '#34c759',
+        moderate: '#ff9f0a',
+        high: '#ff3b30',
+        critical: '#ff2d55',
       };
 
       const boundsPoints: [number, number][] = [
@@ -131,7 +167,7 @@ export class RouteMap extends LitElement {
           const coords = alt.path.coordinates.map(c => [c[1], c[0]] as [number, number]);
           coords.forEach(c => boundsPoints.push(c));
           const isSelected = i === this.selectedRouteIndex;
-          const color = riskColors[alt.riskLevel] || '#999';
+          const color = riskColors[alt.riskLevel] || '#6e6e73';
 
           L.polyline(coords, {
             color,
@@ -147,7 +183,7 @@ export class RouteMap extends LitElement {
           ) {
             const hubIcon = L.divIcon({
               className: '',
-              html: `<div style="background:#b45309;color:#fff;padding:2px 6px;border-radius:2px;font-size:11px;font-weight:700;font-family:monospace;white-space:nowrap;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.2)">Via ${alt.via}</div>`,
+              html: `<div style="background:#ff9f0a;color:#fff;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;font-family:-apple-system,system-ui,sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.3)">Via ${alt.via}</div>`,
             });
             L.marker([alt.viaLatitude, alt.viaLongitude], { icon: hubIcon }).addTo(this.markerLayer);
           }
@@ -159,22 +195,22 @@ export class RouteMap extends LitElement {
           const coords = route.path.coordinates.map(c => [c[1], c[0]] as [number, number]);
           coords.forEach(c => boundsPoints.push(c));
           const isSelected = i === this.selectedRouteIndex;
-          const color = riskColors[route.riskLevel] || '#999';
+          const color = riskColors[route.riskLevel] || '#6e6e73';
 
           L.polyline(coords, {
             color,
             weight: isSelected ? 3 : 1.5,
             opacity: isSelected ? 1 : 0.4,
-            dashArray: isSelected ? undefined : '4 4',
+            dashArray: isSelected ? undefined : '6 6',
           }).addTo(this.routeLayers);
 
           if (isSelected) {
             for (const nz of route.nearbyZones) {
               L.circle([nz.zone.centroidLat, nz.zone.centroidLon], {
                 radius: nz.zone.radiusKm * 1000,
-                color: '#ef4444',
-                fillColor: '#ef4444',
-                fillOpacity: 0.1,
+                color: '#ff3b30',
+                fillColor: '#ff3b30',
+                fillOpacity: 0.15,
                 weight: 1,
               }).addTo(this.zoneLayer);
             }
@@ -198,7 +234,7 @@ export class RouteMap extends LitElement {
     return html`
       <div class="map-header">Scan results</div>
       <div class="map-panel">
-        <div class="map-container"></div>
+        <div class="map-container" style="width:100%;height:100%"></div>
       </div>
     `;
   }

@@ -25,8 +25,8 @@ export const ANOMALY_STDDEV_MULTIPLIER = 2;
 export const TRACK_RESAMPLE_POINTS = 50;
 
 // Alternative routes
-export const ALTERNATIVE_SEARCH_RADIUS_KM = 800;
-export const ALTERNATIVE_MAX_RESULTS = 3;
+export const ALTERNATIVE_SEARCH_RADIUS_KM = 2000;
+export const ALTERNATIVE_MAX_RESULTS = 6;
 export const CRUISE_SPEED_KMH = 850;
 
 // Polling intervals (ms)

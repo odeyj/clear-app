@@ -151,8 +151,8 @@ export function findAlternatives(
     const extraDist = totalDist - directDist;
     const extraTime = Math.round((extraDist / CRUISE_SPEED_KMH) * 60) + 60; // +60 min for connection
 
-    // Only include if it's meaningfully safer
-    if (combinedScore > directScore + 5) {
+    // Include all viable hub connections as itinerary options
+    if (combinedScore > 0) {
       candidates.push({
         id: `alt-${hub.iataCode.toLowerCase()}`,
         description: `One stop: ${originCode} → ${hub.iataCode} → ${destCode}`,
