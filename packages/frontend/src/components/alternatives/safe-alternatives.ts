@@ -1,14 +1,18 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { sharedStyles } from '../../styles/shared-styles.js';
-import type { AlternativeRoute } from '@frcs/shared';
+import type { AlternativeRoute, ScoredRoute } from '@frcs/shared';
 import '../common/risk-badge.js';
 
+/**
+ * Booking-style itinerary list (connecting flights) or fallback great-circle options.
+ */
 @customElement('safe-alternatives')
 export class SafeAlternatives extends LitElement {
   @property({ type: Array }) alternatives: AlternativeRoute[] = [];
-  @property() origin = '';
-  @property() destination = '';
+  /** Used when there are no hub itineraries — same map selection index as scored routes */
+  @property({ type: Array }) fallbackRoutes: ScoredRoute[] = [];
+  @property({ type: Number }) selectedIndex = 0;
 
   static styles = [sharedStyles, css`
     :host { display: block; }
@@ -31,6 +35,10 @@ export class SafeAlternatives extends LitElement {
     }
     .itinerary:hover {
       border-color: rgba(255,255,255,0.18);
+    }
+    .itinerary.selected {
+      border-color: rgba(255,255,255,0.3);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.3);
     }
 
     /* ── Route path row ── */
@@ -89,61 +97,95 @@ export class SafeAlternatives extends LitElement {
       color: var(--color-text-muted, #6e6e73);
       font-size: var(--text-sm, 0.8125rem);
     }
+    .route-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-4, 1rem);
+      font-size: var(--text-sm, 0.875rem);
+      color: var(--color-text-secondary, #666);
+      margin-bottom: var(--space-2, 0.5rem);
+    }
+    .score {
+      font-family: var(--font-mono, monospace);
+      font-weight: 700;
+      font-size: var(--text-base, 1rem);
+    }
   `];
 
-  private buildRoutePath(alt: AlternativeRoute): string {
-    if (alt.via) {
-      const vias = alt.via.split(',').map(v => v.trim());
-      return [this.origin, ...vias, this.destination].join(' \u2192 ');
-    }
-    return `${this.origin} \u2192 ${this.destination}`;
-  }
-
-  private buildStopLabel(alt: AlternativeRoute): string {
-    if (alt.stops === 0) return 'Nonstop';
-    if (alt.stops === 1) return `One stop: ${alt.via || ''}`;
-    return `${alt.stops} stops: ${alt.via || ''}`;
+  private emitSelect(index: number) {
+    this.dispatchEvent(new CustomEvent('itinerary-select', {
+      detail: { index },
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   render() {
-    if (this.alternatives.length === 0) {
+    if (this.alternatives.length > 0) {
       return html`
         <div class="header">Itinerary options</div>
-        <div class="empty">No alternative itineraries available for this route.</div>
+        ${this.alternatives.map((alt, i) => html`
+          <div
+            class="itinerary ${this.selectedIndex === i ? 'selected' : ''}"
+            @click=${() => this.emitSelect(i)}
+          >
+            <div class="route-row">
+              <div>
+                <div class="route-path">${alt.description}</div>
+              </div>
+              <risk-badge .level=${alt.riskLevel} .score=${alt.score}></risk-badge>
+            </div>
+            <div class="stats">
+              <div class="stat">
+                <div class="stat-label">Total distance</div>
+                <div class="stat-value">${alt.distanceKm.toLocaleString()} km</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">Extra vs nonstop</div>
+                <div class="stat-value">+${alt.extraDistanceKm.toLocaleString()} km</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">Extra time (est.)</div>
+                <div class="stat-value">+${alt.extraTimeMinutes} min</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">Stops</div>
+                <div class="stat-value">${alt.stops}</div>
+              </div>
+            </div>
+            <div class="reasoning">${alt.reasoning}</div>
+          </div>
+        `)}
       `;
     }
-    return html`
-      <div class="header">Itinerary options</div>
-      ${this.alternatives.map(alt => html`
-        <div class="itinerary">
-          <div class="route-row">
-            <div>
-              <div class="route-path">${this.buildStopLabel(alt)}</div>
-              <div class="route-path"><span class="via">${this.buildRoutePath(alt)}</span></div>
+
+    if (this.fallbackRoutes.length > 0) {
+      return html`
+        <div class="header">Great-circle path options</div>
+        ${this.fallbackRoutes.map((route, i) => html`
+          <div
+            class="itinerary ${this.selectedIndex === i ? 'selected' : ''}"
+            @click=${() => this.emitSelect(i)}
+          >
+            <div class="route-row">
+              <div>
+                <div class="route-path">${i + 1}. ${route.name}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:0.5rem">
+                <span class="score risk-${route.riskLevel}">${route.score}</span>
+                <risk-badge .level=${route.riskLevel}></risk-badge>
+              </div>
             </div>
-            <risk-badge .level=${alt.riskLevel} .score=${alt.score}></risk-badge>
+            <div class="route-meta">
+              <span>${route.distanceKm.toLocaleString()} km</span>
+              <span>${route.nearbyZones.length} conflict zone${route.nearbyZones.length !== 1 ? 's' : ''} nearby</span>
+            </div>
+            <div class="reasoning">${route.reasoning}</div>
           </div>
-          <div class="stats">
-            <div class="stat">
-              <div class="stat-label">Total distance</div>
-              <div class="stat-value">${alt.distanceKm.toLocaleString()} km</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">Extra vs nonstop</div>
-              <div class="stat-value">+${alt.extraDistanceKm.toLocaleString()} km</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">Extra time (est.)</div>
-              <div class="stat-value">+${alt.extraTimeMinutes} min</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">Stops</div>
-              <div class="stat-value">${alt.stops}</div>
-            </div>
-          </div>
-          <div class="reasoning">${alt.reasoning}</div>
-        </div>
-      `)}
-    `;
+        `)}
+      `;
+    }
+
+    return nothing;
   }
 }

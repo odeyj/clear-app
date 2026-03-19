@@ -1,11 +1,14 @@
-import { LitElement, html, css } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
-import type { ScoredRoute, ConflictZone } from '@frcs/shared';
+import { LitElement, html, css, unsafeCSS } from 'lit';
 import leafletCss from 'leaflet/dist/leaflet.css?raw';
+import { customElement, property, state } from 'lit/decorators.js';
+import type { AlternativeRoute, ScoredRoute } from '@frcs/shared';
 import L from 'leaflet';
 
 @customElement('route-map')
 export class RouteMap extends LitElement {
+  /** One-stop / hub itineraries (shown when non-empty) */
+  @property({ type: Array }) alternatives: AlternativeRoute[] = [];
+  /** Great-circle geometry options when there are no itinerary alternatives */
   @property({ type: Array }) routes: ScoredRoute[] = [];
   @property({ type: Object }) origin: { lat: number; lon: number; code: string } | null = null;
   @property({ type: Object }) destination: { lat: number; lon: number; code: string } | null = null;
@@ -43,6 +46,23 @@ export class RouteMap extends LitElement {
           background: #2c2c2e;
         }
         route-map .map-container { width: 100%; height: 100%; }
+        route-map .map-header {
+          flex-shrink: 0;
+          padding: 0.45rem 0.75rem;
+          font-size: 0.6875rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.07em;
+          color: #6e6e73;
+          background: #1c1c1e;
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        route-map .map-panel {
+          flex: 1;
+          min-height: 0;
+          position: relative;
+          height: calc(100% - 30px);
+        }
         /* Fix leaflet controls for dark theme */
         route-map .leaflet-control-zoom a {
           background: #2c2c2e;
@@ -66,7 +86,7 @@ export class RouteMap extends LitElement {
   }
 
   firstUpdated() {
-    const container = this.querySelector('.map-container') as HTMLElement;
+    const container = this.renderRoot.querySelector('.map-container') as HTMLElement | null;
     if (!container) return;
 
     this.map = L.map(container, { zoomControl: true }).setView([30, 30], 3);
@@ -93,7 +113,13 @@ export class RouteMap extends LitElement {
   }
 
   updated(changed: Map<string, unknown>) {
-    if (changed.has('routes') || changed.has('origin') || changed.has('destination') || changed.has('selectedRouteIndex')) {
+    if (
+      changed.has('routes') ||
+      changed.has('alternatives') ||
+      changed.has('origin') ||
+      changed.has('destination') ||
+      changed.has('selectedRouteIndex')
+    ) {
       this.updateMap();
     }
   }
@@ -108,62 +134,108 @@ export class RouteMap extends LitElement {
     if (!this.origin || !this.destination) return;
 
     try {
+      const originIcon = L.divIcon({
+        className: '',
+        html: `<div style="background:#111;color:#fff;padding:2px 6px;border-radius:2px;font-size:12px;font-weight:700;font-family:monospace;white-space:nowrap">${this.origin.code}</div>`,
+      });
+      const destIcon = L.divIcon({
+        className: '',
+        html: `<div style="background:#111;color:#fff;padding:2px 6px;border-radius:2px;font-size:12px;font-weight:700;font-family:monospace;white-space:nowrap">${this.destination.code}</div>`,
+      });
 
-    // Add origin/destination markers with dark-themed styling
-    const originIcon = L.divIcon({ className: '', html: `<div style="background:#34c759;color:#fff;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;font-family:-apple-system,system-ui,sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.3)">${this.origin.code}</div>` });
-    const destIcon = L.divIcon({ className: '', html: `<div style="background:#34c759;color:#fff;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;font-family:-apple-system,system-ui,sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.3)">${this.destination.code}</div>` });
+      L.marker([this.origin.lat, this.origin.lon], { icon: originIcon }).addTo(this.markerLayer);
+      L.marker([this.destination.lat, this.destination.lon], { icon: destIcon }).addTo(this.markerLayer);
 
-    L.marker([this.origin.lat, this.origin.lon], { icon: originIcon }).addTo(this.markerLayer);
-    L.marker([this.destination.lat, this.destination.lon], { icon: destIcon }).addTo(this.markerLayer);
+      const riskColors: Record<string, string> = {
+        low: '#34c759',
+        moderate: '#ff9f0a',
+        high: '#ff3b30',
+        critical: '#ff2d55',
+      };
 
-    // Draw routes
-    const riskColors: Record<string, string> = {
-      low: '#34c759',
-      moderate: '#ff9f0a',
-      high: '#ff3b30',
-      critical: '#ff2d55',
-    };
+      const boundsPoints: [number, number][] = [
+        [this.origin.lat, this.origin.lon],
+        [this.destination.lat, this.destination.lon],
+      ];
 
-    for (let i = 0; i < this.routes.length; i++) {
-      const route = this.routes[i];
-      if (!route.path?.coordinates?.length) continue;
-      const coords = route.path.coordinates.map(c => [c[1], c[0]] as [number, number]);
-      const isSelected = i === this.selectedRouteIndex;
-      const color = riskColors[route.riskLevel] || '#6e6e73';
+      const useAlternatives = this.alternatives.length > 0;
 
-      L.polyline(coords, {
-        color,
-        weight: isSelected ? 3 : 1.5,
-        opacity: isSelected ? 1 : 0.4,
-        dashArray: isSelected ? undefined : '6 6',
-      }).addTo(this.routeLayers);
+      if (useAlternatives) {
+        for (let i = 0; i < this.alternatives.length; i++) {
+          const alt = this.alternatives[i];
+          if (!alt.path?.coordinates?.length) continue;
+          const coords = alt.path.coordinates.map(c => [c[1], c[0]] as [number, number]);
+          coords.forEach(c => boundsPoints.push(c));
+          const isSelected = i === this.selectedRouteIndex;
+          const color = riskColors[alt.riskLevel] || '#6e6e73';
 
-      // Draw conflict zones for selected route
-      if (isSelected) {
-        for (const nz of route.nearbyZones) {
-          L.circle([nz.zone.centroidLat, nz.zone.centroidLon], {
-            radius: nz.zone.radiusKm * 1000,
-            color: '#ff3b30',
-            fillColor: '#ff3b30',
-            fillOpacity: 0.15,
-            weight: 1,
-          }).addTo(this.zoneLayer);
+          L.polyline(coords, {
+            color,
+            weight: isSelected ? 4 : 1.5,
+            opacity: isSelected ? 1 : 0.35,
+            dashArray: isSelected ? undefined : '6 5',
+          }).addTo(this.routeLayers);
+
+          if (
+            isSelected &&
+            alt.viaLatitude !== undefined &&
+            alt.viaLongitude !== undefined
+          ) {
+            const hubIcon = L.divIcon({
+              className: '',
+              html: `<div style="background:#ff9f0a;color:#fff;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;font-family:-apple-system,system-ui,sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.3)">Via ${alt.via}</div>`,
+            });
+            L.marker([alt.viaLatitude, alt.viaLongitude], { icon: hubIcon }).addTo(this.markerLayer);
+          }
+        }
+      } else {
+        for (let i = 0; i < this.routes.length; i++) {
+          const route = this.routes[i];
+          if (!route.path?.coordinates?.length) continue;
+          const coords = route.path.coordinates.map(c => [c[1], c[0]] as [number, number]);
+          coords.forEach(c => boundsPoints.push(c));
+          const isSelected = i === this.selectedRouteIndex;
+          const color = riskColors[route.riskLevel] || '#6e6e73';
+
+          L.polyline(coords, {
+            color,
+            weight: isSelected ? 3 : 1.5,
+            opacity: isSelected ? 1 : 0.4,
+            dashArray: isSelected ? undefined : '6 6',
+          }).addTo(this.routeLayers);
+
+          if (isSelected) {
+            for (const nz of route.nearbyZones) {
+              L.circle([nz.zone.centroidLat, nz.zone.centroidLon], {
+                radius: nz.zone.radiusKm * 1000,
+                color: '#ff3b30',
+                fillColor: '#ff3b30',
+                fillOpacity: 0.15,
+                weight: 1,
+              }).addTo(this.zoneLayer);
+            }
+          }
         }
       }
-    }
 
-    // Fit bounds
-    const allCoords: [number, number][] = [
-      [this.origin.lat, this.origin.lon],
-      [this.destination.lat, this.destination.lon],
-    ];
-    this.map.fitBounds(L.latLngBounds(allCoords), { padding: [40, 40] });
+      this.map.fitBounds(L.latLngBounds(boundsPoints), { padding: [40, 40] });
     } catch (e) {
       console.error('route-map: updateMap failed', e);
     }
   }
 
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this.map?.remove();
+    this.map = null;
+  }
+
   render() {
-    return html`<div class="map-container" style="width:100%;height:100%"></div>`;
+    return html`
+      <div class="map-header">Scan results</div>
+      <div class="map-panel">
+        <div class="map-container" style="width:100%;height:100%"></div>
+      </div>
+    `;
   }
 }

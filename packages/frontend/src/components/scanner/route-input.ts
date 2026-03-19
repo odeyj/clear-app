@@ -4,6 +4,9 @@ import { sharedStyles } from '../../styles/shared-styles.js';
 import { api } from '../../services/api-client.js';
 import type { AirportSearchResult } from '@frcs/shared';
 
+const DEFAULT_ORIGIN = 'BOS';
+const DEFAULT_DEST = 'BLR';
+
 @customElement('route-input')
 export class RouteInput extends LitElement {
   @state() private origin = '';
@@ -124,6 +127,28 @@ export class RouteInput extends LitElement {
   `];
 
   private debounceTimer: number | null = null;
+  private defaultAutoScanDone = false;
+
+  firstUpdated() {
+    this.bootstrapDefaultRoute();
+  }
+
+  /** Fire initial scan for the default BOS→BLR pair once */
+  private bootstrapDefaultRoute() {
+    if (this.defaultAutoScanDone) return;
+    if (
+      this.origin.trim().toUpperCase() !== DEFAULT_ORIGIN ||
+      this.destination.trim().toUpperCase() !== DEFAULT_DEST
+    ) {
+      return;
+    }
+    this.defaultAutoScanDone = true;
+    this.dispatchEvent(new CustomEvent('scan', {
+      detail: { origin: DEFAULT_ORIGIN, destination: DEFAULT_DEST },
+      bubbles: true,
+      composed: true,
+    }));
+  }
 
   private async handleInput(field: 'origin' | 'dest', value: string) {
     if (field === 'origin') {
