@@ -45,13 +45,19 @@ export const sharedStyles = css`
     cursor: pointer;
     transition: background 0.15s;
   }
-  .btn:hover { background: var(--color-surface, #f8f8f8); }
+  .btn:hover:not(.btn-primary) {
+    background: var(--color-surface, #f8f8f8);
+  }
   .btn-primary {
     background: var(--color-text, #111);
     color: var(--color-bg, #fff);
     border-color: var(--color-text, #111);
   }
-  .btn-primary:hover { opacity: 0.9; }
+  .btn-primary:hover {
+    background: #2c2c2c;
+    color: #fff;
+    border-color: #2c2c2c;
+  }
 
   .visually-hidden {
     position: absolute;
