@@ -1,6 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { ScoredRoute, ConflictZone } from '@frcs/shared';
+import leafletCss from 'leaflet/dist/leaflet.css?raw';
 import L from 'leaflet';
 
 @customElement('route-map')
@@ -18,24 +19,62 @@ export class RouteMap extends LitElement {
   // Opt out of Shadow DOM for Leaflet CSS compatibility
   createRenderRoot() { return this; }
 
-  static styles = css`
-    route-map {
-      display: block;
-      height: 400px;
-      border: 1px solid var(--color-border, #e0e0e0);
-      border-radius: var(--radius-lg, 8px);
-      overflow: hidden;
+  connectedCallback() {
+    super.connectedCallback();
+    // Guarantee dimensions via inline style (light DOM ignores static styles)
+    this.style.display = 'block';
+    this.style.height = '500px';
+    this.style.borderRadius = '12px';
+    this.style.overflow = 'hidden';
+    this.style.background = '#2c2c2e';
+    this.style.border = '1px solid rgba(255,255,255,0.08)';
+    // Since we use light DOM, inject styles directly
+    if (!document.getElementById('route-map-styles')) {
+      const style = document.createElement('style');
+      style.id = 'route-map-styles';
+      style.textContent = `
+        ${leafletCss}
+        route-map {
+          display: block;
+          height: 500px;
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 12px;
+          overflow: hidden;
+          background: #2c2c2e;
+        }
+        route-map .map-container { width: 100%; height: 100%; }
+        /* Fix leaflet controls for dark theme */
+        route-map .leaflet-control-zoom a {
+          background: #2c2c2e;
+          color: #f5f5f7;
+          border-color: rgba(255,255,255,0.12);
+        }
+        route-map .leaflet-control-zoom a:hover {
+          background: #3a3a3c;
+        }
+        route-map .leaflet-control-attribution {
+          background: rgba(28,28,30,0.8);
+          color: #6e6e73;
+          font-size: 10px;
+        }
+        route-map .leaflet-control-attribution a {
+          color: #a1a1a6;
+        }
+      `;
+      document.head.appendChild(style);
     }
-    .map-container { width: 100%; height: 100%; }
-  `;
+  }
 
   firstUpdated() {
     const container = this.querySelector('.map-container') as HTMLElement;
     if (!container) return;
 
     this.map = L.map(container, { zoomControl: true }).setView([30, 30], 3);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
+
+    // Dark-themed tile layer matching CLEAR UI
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+      subdomains: 'abcd',
       maxZoom: 18,
     }).addTo(this.map);
 
@@ -43,11 +82,14 @@ export class RouteMap extends LitElement {
     this.markerLayer.addTo(this.map);
     this.zoneLayer.addTo(this.map);
 
-    // Host layout (e.g. inside shadow DOM) may report 0×0 until after paint
+    // Layout may report 0x0 until after paint — retry sizing
     requestAnimationFrame(() => {
       this.map?.invalidateSize();
       this.updateMap();
     });
+    setTimeout(() => {
+      this.map?.invalidateSize();
+    }, 300);
   }
 
   updated(changed: Map<string, unknown>) {
@@ -67,19 +109,19 @@ export class RouteMap extends LitElement {
 
     try {
 
-    // Add origin/destination markers
-    const originIcon = L.divIcon({ className: '', html: `<div style="background:#111;color:#fff;padding:2px 6px;border-radius:2px;font-size:12px;font-weight:700;font-family:monospace;white-space:nowrap">${this.origin.code}</div>` });
-    const destIcon = L.divIcon({ className: '', html: `<div style="background:#111;color:#fff;padding:2px 6px;border-radius:2px;font-size:12px;font-weight:700;font-family:monospace;white-space:nowrap">${this.destination.code}</div>` });
+    // Add origin/destination markers with dark-themed styling
+    const originIcon = L.divIcon({ className: '', html: `<div style="background:#34c759;color:#fff;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;font-family:-apple-system,system-ui,sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.3)">${this.origin.code}</div>` });
+    const destIcon = L.divIcon({ className: '', html: `<div style="background:#34c759;color:#fff;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;font-family:-apple-system,system-ui,sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.3)">${this.destination.code}</div>` });
 
     L.marker([this.origin.lat, this.origin.lon], { icon: originIcon }).addTo(this.markerLayer);
     L.marker([this.destination.lat, this.destination.lon], { icon: destIcon }).addTo(this.markerLayer);
 
     // Draw routes
     const riskColors: Record<string, string> = {
-      low: '#22c55e',
-      moderate: '#f59e0b',
-      high: '#ef4444',
-      critical: '#dc2626',
+      low: '#34c759',
+      moderate: '#ff9f0a',
+      high: '#ff3b30',
+      critical: '#ff2d55',
     };
 
     for (let i = 0; i < this.routes.length; i++) {
@@ -87,13 +129,13 @@ export class RouteMap extends LitElement {
       if (!route.path?.coordinates?.length) continue;
       const coords = route.path.coordinates.map(c => [c[1], c[0]] as [number, number]);
       const isSelected = i === this.selectedRouteIndex;
-      const color = riskColors[route.riskLevel] || '#999';
+      const color = riskColors[route.riskLevel] || '#6e6e73';
 
       L.polyline(coords, {
         color,
         weight: isSelected ? 3 : 1.5,
         opacity: isSelected ? 1 : 0.4,
-        dashArray: isSelected ? undefined : '4 4',
+        dashArray: isSelected ? undefined : '6 6',
       }).addTo(this.routeLayers);
 
       // Draw conflict zones for selected route
@@ -101,9 +143,9 @@ export class RouteMap extends LitElement {
         for (const nz of route.nearbyZones) {
           L.circle([nz.zone.centroidLat, nz.zone.centroidLon], {
             radius: nz.zone.radiusKm * 1000,
-            color: '#ef4444',
-            fillColor: '#ef4444',
-            fillOpacity: 0.1,
+            color: '#ff3b30',
+            fillColor: '#ff3b30',
+            fillOpacity: 0.15,
             weight: 1,
           }).addTo(this.zoneLayer);
         }
@@ -122,6 +164,6 @@ export class RouteMap extends LitElement {
   }
 
   render() {
-    return html`<div class="map-container"></div>`;
+    return html`<div class="map-container" style="width:100%;height:100%"></div>`;
   }
 }

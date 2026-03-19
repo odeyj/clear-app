@@ -9,25 +9,23 @@ export class ScoreGauge extends LitElement {
   static styles = css`
     :host { display: block; }
     .gauge {
-      text-align: center;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: var(--space-3, 0.75rem);
     }
-    .value {
-      font-family: var(--font-mono, monospace);
-      font-size: 3rem;
+    .gauge-label {
+      font-size: var(--text-lg, 1.0625rem);
+      font-weight: 700;
+      color: var(--color-text, #f5f5f7);
+    }
+    .gauge-level {
+      font-size: var(--text-2xl, 1.5rem);
       font-weight: 800;
-      line-height: 1;
-    }
-    .label {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--color-text-muted, #999);
-      margin-top: 0.25rem;
     }
     .bar {
-      margin-top: 0.75rem;
       height: 4px;
-      background: var(--color-border, #e0e0e0);
+      background: var(--color-surface-elevated, #3a3a3c);
       border-radius: 2px;
       overflow: hidden;
     }
@@ -36,14 +34,14 @@ export class ScoreGauge extends LitElement {
       border-radius: 2px;
       transition: width 0.5s ease;
     }
-    .low { color: var(--color-risk-low, #22c55e); }
-    .low .fill { background: var(--color-risk-low, #22c55e); }
-    .moderate { color: var(--color-risk-moderate, #f59e0b); }
-    .moderate .fill { background: var(--color-risk-moderate, #f59e0b); }
-    .high { color: var(--color-risk-high, #ef4444); }
-    .high .fill { background: var(--color-risk-high, #ef4444); }
-    .critical { color: var(--color-risk-critical, #dc2626); }
-    .critical .fill { background: var(--color-risk-critical, #dc2626); }
+    .low .gauge-level { color: var(--color-risk-low, #34c759); }
+    .low .fill { background: var(--color-risk-low, #34c759); }
+    .moderate .gauge-level { color: var(--color-risk-moderate, #ff9f0a); }
+    .moderate .fill { background: var(--color-risk-moderate, #ff9f0a); }
+    .high .gauge-level { color: var(--color-risk-high, #ff3b30); }
+    .high .fill { background: var(--color-risk-high, #ff3b30); }
+    .critical .gauge-level { color: var(--color-risk-critical, #ff2d55); }
+    .critical .fill { background: var(--color-risk-critical, #ff2d55); }
   `;
 
   private get riskClass(): string {
@@ -53,11 +51,20 @@ export class ScoreGauge extends LitElement {
     return 'critical';
   }
 
+  private get riskLabel(): string {
+    if (this.value < 30) return 'Low';
+    if (this.value < 60) return 'Moderate';
+    if (this.value < 80) return 'High';
+    return 'Critical';
+  }
+
   render() {
     return html`
-      <div class="gauge ${this.riskClass}">
-        <div class="value">${this.value}</div>
-        <div class="label">${this.label}</div>
+      <div class=${this.riskClass}>
+        <div class="gauge">
+          <span class="gauge-label">${this.label}</span>
+          <span class="gauge-level">${this.riskLabel}</span>
+        </div>
         <div class="bar">
           <div class="fill" style="width: ${this.value}%"></div>
         </div>

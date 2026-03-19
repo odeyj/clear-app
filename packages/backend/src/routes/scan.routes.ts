@@ -37,14 +37,13 @@ export async function scanRoutes(app: FastifyInstance) {
       routeLabel
     );
 
-    const alternatives = bestRoute.score < 70
-      ? findAlternatives(
-          originAirport.latitude, originAirport.longitude,
-          destAirport.latitude, destAirport.longitude,
-          origin.toUpperCase(), destination.toUpperCase(),
-          bestRoute.score
-        )
-      : [];
+    // Always show itinerary alternatives so users can compare options
+    const alternatives = findAlternatives(
+      originAirport.latitude, originAirport.longitude,
+      destAirport.latitude, destAirport.longitude,
+      origin.toUpperCase(), destination.toUpperCase(),
+      bestRoute.score
+    );
 
     const response: ScanResponse = {
       origin: {

@@ -11,52 +11,104 @@ export class ScanResults extends LitElement {
   static styles = [sharedStyles, css`
     :host { display: block; }
     .header {
-      font-size: var(--text-xs, 0.75rem);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--color-text-muted, #999);
-      font-weight: 600;
-      margin-bottom: var(--space-3, 0.75rem);
+      margin-bottom: var(--space-1, 0.25rem);
+    }
+    .header-title {
+      font-size: var(--text-lg, 1.0625rem);
+      font-weight: 700;
+      color: var(--color-text, #f5f5f7);
+    }
+    .header-sub {
+      font-size: var(--text-sm, 0.8125rem);
+      color: var(--color-text-secondary, #a1a1a6);
+      margin-top: 2px;
+      margin-bottom: var(--space-4, 1rem);
     }
     .route {
-      padding: var(--space-4, 1rem);
-      border: 1px solid var(--color-border, #e0e0e0);
-      border-radius: var(--radius, 4px);
-      margin-bottom: var(--space-2, 0.5rem);
+      padding: var(--space-5, 1.25rem);
+      background: var(--color-surface, #2c2c2e);
+      border: 1px solid var(--color-border, rgba(255,255,255,0.08));
+      border-radius: var(--radius-lg, 12px);
+      margin-bottom: var(--space-3, 0.75rem);
       cursor: pointer;
-      transition: border-color 0.15s;
+      transition: border-color var(--duration-fast, 0.15s) var(--ease-default);
     }
-    .route:hover { border-color: var(--color-text, #111); }
+    .route:hover {
+      border-color: rgba(255,255,255,0.18);
+    }
     .route-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
       margin-bottom: var(--space-2, 0.5rem);
     }
     .route-name {
+      font-weight: 700;
+      font-size: var(--text-base, 0.9375rem);
+      color: var(--color-text, #f5f5f7);
+    }
+    .route-via {
+      font-size: var(--text-sm, 0.8125rem);
+      color: var(--color-text-secondary, #a1a1a6);
+      margin-top: 2px;
+    }
+    .score-block {
+      text-align: right;
+    }
+    .score-value {
+      font-family: var(--font-mono, monospace);
+      font-weight: 800;
+      font-size: var(--text-2xl, 1.5rem);
+      line-height: 1;
+    }
+    .score-label {
+      font-size: var(--text-xs, 0.6875rem);
+      color: var(--color-text-muted, #6e6e73);
+      margin-top: 2px;
+    }
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2, 0.5rem);
+      margin: var(--space-3, 0.75rem) 0;
+      align-items: center;
+    }
+    .tag {
+      font-size: var(--text-xs, 0.6875rem);
       font-weight: 600;
+      padding: 3px 10px;
+      border-radius: var(--radius-full, 9999px);
+      border: 1px solid;
+    }
+    .tag-low {
+      color: var(--color-risk-low, #34c759);
+      border-color: var(--color-risk-low, #34c759);
+    }
+    .tag-moderate {
+      color: var(--color-risk-moderate, #ff9f0a);
+      border-color: var(--color-risk-moderate, #ff9f0a);
+    }
+    .tag-high {
+      color: var(--color-risk-high, #ff3b30);
+      border-color: var(--color-risk-high, #ff3b30);
+    }
+    .tag-critical {
+      color: var(--color-risk-critical, #ff2d55);
+      border-color: var(--color-risk-critical, #ff2d55);
+    }
+    .tag-neutral {
+      color: var(--color-text-secondary, #a1a1a6);
+      border-color: var(--color-border-strong, rgba(255,255,255,0.14));
     }
     .route-meta {
-      display: flex;
-      gap: var(--space-4, 1rem);
-      font-size: var(--text-sm, 0.875rem);
-      color: var(--color-text-secondary, #666);
-    }
-    .score {
-      font-family: var(--font-mono, monospace);
-      font-weight: 700;
-      font-size: var(--text-lg, 1.125rem);
+      font-size: var(--text-sm, 0.8125rem);
+      color: var(--color-text-secondary, #a1a1a6);
     }
     .reasoning {
-      font-size: var(--text-sm, 0.875rem);
-      color: var(--color-text-secondary, #666);
+      font-size: var(--text-sm, 0.8125rem);
+      color: var(--color-text-secondary, #a1a1a6);
       line-height: 1.5;
-      margin-top: var(--space-2, 0.5rem);
-    }
-    .zones {
-      font-size: var(--text-xs, 0.75rem);
-      color: var(--color-text-muted, #999);
-      margin-top: var(--space-2, 0.5rem);
+      margin-top: var(--space-3, 0.75rem);
     }
   `];
 
@@ -68,31 +120,42 @@ export class ScanResults extends LitElement {
     }));
   }
 
+  private getRecommendationTag(route: ScoredRoute, index: number) {
+    if (index === 0 && route.riskLevel === 'low') return html`<span class="tag tag-low">Recommended</span>`;
+    if (route.riskLevel === 'low') return html`<span class="tag tag-low">Generally safe</span>`;
+    if (route.riskLevel === 'moderate') return html`<span class="tag tag-moderate">Use caution</span>`;
+    if (route.riskLevel === 'high') return html`<span class="tag tag-high">Not recommended</span>`;
+    if (route.riskLevel === 'critical') return html`<span class="tag tag-critical">Avoid</span>`;
+    return nothing;
+  }
+
   render() {
     if (this.routes.length === 0) return nothing;
     return html`
-      <div class="header">Route options ranked by safety</div>
+      <div class="header">
+        <div class="header-title">Route analysis</div>
+        <div class="header-sub">Ranked by conflict proximity score</div>
+      </div>
       ${this.routes.map((route, i) => html`
         <div class="route" @click=${() => this.handleSelect(route)}>
           <div class="route-header">
-            <span class="route-name">${i + 1}. ${route.name}</span>
-            <div style="display:flex;align-items:center;gap:0.5rem">
-              <span class="score risk-${route.riskLevel}">${route.score}</span>
-              <risk-badge .level=${route.riskLevel}></risk-badge>
+            <div>
+              <div class="route-name">${route.name}</div>
+              <div class="route-via">${route.distanceKm.toLocaleString()} km</div>
+            </div>
+            <div class="score-block">
+              <div class="score-value risk-${route.riskLevel}">${route.score}</div>
+              <div class="score-label">Safety score</div>
             </div>
           </div>
-          <div class="route-meta">
-            <span>${route.distanceKm.toLocaleString()} km</span>
-            <span>${route.nearbyZones.length} conflict zone${route.nearbyZones.length !== 1 ? 's' : ''} nearby</span>
+          <div class="tags">
+            ${this.getRecommendationTag(route, i)}
+            ${route.nearbyZones.length === 0
+              ? html`<span class="tag tag-low">No conflict zones</span>`
+              : html`<span class="tag tag-${route.riskLevel}">${route.nearbyZones.length} zone${route.nearbyZones.length !== 1 ? 's' : ''} nearby</span>`}
+            <span class="route-meta">${route.distanceKm > 0 ? `+${Math.round(route.distanceKm * 0.1)}hr vs direct` : ''}</span>
           </div>
           <div class="reasoning">${route.reasoning}</div>
-          ${route.nearbyZones.length > 0 ? html`
-            <div class="zones">
-              ${route.nearbyZones.map(z => html`
-                <span>${z.zone.regionName} (${z.distanceKm}km ${z.bearing})</span>
-              `)}
-            </div>
-          ` : nothing}
         </div>
       `)}
     `;
