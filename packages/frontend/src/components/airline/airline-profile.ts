@@ -11,43 +11,54 @@ export class AirlineProfiles extends LitElement {
   static styles = [sharedStyles, css`
     :host { display: block; }
     .header {
-      font-size: var(--text-xs, 0.75rem);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--color-text-muted, #999);
-      font-weight: 600;
-      margin-bottom: var(--space-3, 0.75rem);
+      font-size: var(--text-lg, 1.0625rem);
+      font-weight: 700;
+      color: var(--color-text, #f5f5f7);
+      margin-bottom: var(--space-4, 1rem);
     }
     .profile {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
-      border: 1px solid var(--color-border, #e0e0e0);
-      border-radius: var(--radius, 4px);
-      margin-bottom: var(--space-2, 0.5rem);
+      padding: var(--space-5, 1.25rem);
+      background: var(--color-surface, #2c2c2e);
+      border: 1px solid var(--color-border, rgba(255,255,255,0.08));
+      border-radius: var(--radius-lg, 12px);
+      margin-bottom: var(--space-3, 0.75rem);
+      transition: border-color var(--duration-fast, 0.15s) var(--ease-default);
+    }
+    .profile:hover {
+      border-color: rgba(255,255,255,0.18);
     }
     .airline {
-      font-weight: 600;
+      font-weight: 700;
       font-family: var(--font-mono, monospace);
+      font-size: var(--text-base, 0.9375rem);
+      color: var(--color-text, #f5f5f7);
+    }
+    .airline-flights {
+      font-size: var(--text-sm, 0.8125rem);
+      color: var(--color-text-secondary, #a1a1a6);
+      margin-top: 2px;
     }
     .stats {
       display: flex;
-      gap: var(--space-4, 1rem);
-      font-size: var(--text-sm, 0.875rem);
-      color: var(--color-text-secondary, #666);
+      gap: var(--space-6, 1.5rem);
+      align-items: center;
     }
     .stat-label {
-      font-size: var(--text-xs, 0.75rem);
-      color: var(--color-text-muted, #999);
+      font-size: var(--text-xs, 0.6875rem);
+      color: var(--color-text-muted, #6e6e73);
     }
     .stat-value {
       font-family: var(--font-mono, monospace);
-      font-weight: 600;
+      font-weight: 700;
+      font-size: var(--text-sm, 0.8125rem);
+      color: var(--color-text, #f5f5f7);
     }
     .empty {
-      font-size: var(--text-sm, 0.875rem);
-      color: var(--color-text-muted, #999);
+      font-size: var(--text-sm, 0.8125rem);
+      color: var(--color-text-muted, #6e6e73);
       text-align: center;
       padding: var(--space-8, 2rem) 0;
     }
@@ -66,11 +77,11 @@ export class AirlineProfiles extends LitElement {
         <div class="profile">
           <div>
             <div class="airline">${p.icao}</div>
-            <div style="font-size:var(--text-sm);color:var(--color-text-secondary)">${p.flightCount} flights tracked</div>
+            <div class="airline-flights">${p.flightCount} flights tracked</div>
           </div>
           <div class="stats">
             <div>
-              <div class="stat-label">Min distance to conflict</div>
+              <div class="stat-label">Min distance</div>
               <div class="stat-value">${p.minConflictDistance} km</div>
             </div>
             <div>

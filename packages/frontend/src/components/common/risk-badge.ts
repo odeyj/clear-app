@@ -13,18 +13,18 @@ export class RiskBadge extends LitElement {
       display: inline-flex;
       align-items: center;
       gap: 0.25rem;
-      padding: 0.125rem 0.5rem;
-      border-radius: 2px;
-      font-size: 0.75rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      font-family: var(--font-mono, monospace);
+      padding: 3px 10px;
+      border-radius: 9999px;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      border: 1px solid;
+      font-family: var(--font-sans, -apple-system, system-ui, sans-serif);
+      -webkit-font-smoothing: antialiased;
     }
-    .low { background: #dcfce7; color: #166534; }
-    .moderate { background: #fef3c7; color: #92400e; }
-    .high { background: #fee2e2; color: #991b1b; }
-    .critical { background: #dc2626; color: #fff; }
+    .low { color: #34c759; border-color: #34c759; }
+    .moderate { color: #ff9f0a; border-color: #ff9f0a; }
+    .high { color: #ff3b30; border-color: #ff3b30; }
+    .critical { color: #ff2d55; border-color: #ff2d55; }
   `;
 
   render() {

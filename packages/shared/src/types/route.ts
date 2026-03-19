@@ -49,6 +49,9 @@ export interface AlternativeRoute {
   id: string;
   description: string;
   via: string;
+  /** Connection airport (for map marker on one-stop itineraries) */
+  viaLatitude?: number;
+  viaLongitude?: number;
   path: GeoJSON.LineString;
   score: number;
   riskLevel: RiskLevel;

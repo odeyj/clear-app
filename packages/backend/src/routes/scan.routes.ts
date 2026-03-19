@@ -1,8 +1,13 @@
 import type { FastifyInstance } from 'fastify';
+import { haversineDistance } from '@frcs/shared';
 import { getAirportByCode } from '../services/airports.service.js';
 import { scoreMultipleRoutes } from '../algorithms/route-scorer.js';
 import { calculateRisk } from '../algorithms/risk-calculator.js';
-import { findAlternatives } from '../algorithms/alternative-finder.js';
+import {
+  findAlternatives,
+  buildLongHaulEuropeIndiaLayovers,
+  mergeLayoverAlternatives,
+} from '../algorithms/alternative-finder.js';
 import type { ScanRequest, ScanResponse } from '@frcs/shared';
 
 export async function scanRoutes(app: FastifyInstance) {
@@ -37,14 +42,33 @@ export async function scanRoutes(app: FastifyInstance) {
       routeLabel
     );
 
-    const alternatives = bestRoute.score < 70
-      ? findAlternatives(
-          originAirport.latitude, originAirport.longitude,
-          destAirport.latitude, destAirport.longitude,
-          origin.toUpperCase(), destination.toUpperCase(),
-          bestRoute.score
-        )
-      : [];
+    const directKm = haversineDistance(
+      originAirport.latitude,
+      originAirport.longitude,
+      destAirport.latitude,
+      destAirport.longitude
+    );
+
+    const riskBasedAlternatives =
+      bestRoute.score < 70
+        ? findAlternatives(
+            originAirport.latitude,
+            originAirport.longitude,
+            destAirport.latitude,
+            destAirport.longitude,
+            origin.toUpperCase(),
+            destination.toUpperCase(),
+            bestRoute.score
+          )
+        : [];
+
+    const europeIndiaLayovers = buildLongHaulEuropeIndiaLayovers(
+      originAirport,
+      destAirport,
+      directKm
+    );
+
+    const alternatives = mergeLayoverAlternatives(riskBasedAlternatives, europeIndiaLayovers);
 
     const response: ScanResponse = {
       origin: {
