@@ -4,10 +4,13 @@ import { sharedStyles } from '../../styles/shared-styles.js';
 import { api } from '../../services/api-client.js';
 import type { AirportSearchResult } from '@frcs/shared';
 
+const DEFAULT_ORIGIN = 'BOS';
+const DEFAULT_DEST = 'BLR';
+
 @customElement('route-input')
 export class RouteInput extends LitElement {
-  @state() private origin = '';
-  @state() private destination = '';
+  @state() private origin = DEFAULT_ORIGIN;
+  @state() private destination = DEFAULT_DEST;
   @state() private originSuggestions: AirportSearchResult[] = [];
   @state() private destSuggestions: AirportSearchResult[] = [];
   @state() private activeField: 'origin' | 'dest' | null = null;
@@ -81,6 +84,28 @@ export class RouteInput extends LitElement {
   `];
 
   private debounceTimer: number | null = null;
+  private defaultAutoScanDone = false;
+
+  firstUpdated() {
+    this.bootstrapDefaultRoute();
+  }
+
+  /** Fire initial scan for the default BOS→BLR pair once */
+  private bootstrapDefaultRoute() {
+    if (this.defaultAutoScanDone) return;
+    if (
+      this.origin.trim().toUpperCase() !== DEFAULT_ORIGIN ||
+      this.destination.trim().toUpperCase() !== DEFAULT_DEST
+    ) {
+      return;
+    }
+    this.defaultAutoScanDone = true;
+    this.dispatchEvent(new CustomEvent('scan', {
+      detail: { origin: DEFAULT_ORIGIN, destination: DEFAULT_DEST },
+      bubbles: true,
+      composed: true,
+    }));
+  }
 
   private async handleInput(field: 'origin' | 'dest', value: string) {
     if (field === 'origin') this.origin = value;
@@ -147,7 +172,7 @@ export class RouteInput extends LitElement {
           <label>Origin</label>
           <input
             type="text"
-            placeholder="JFK"
+            placeholder="BOS"
             .value=${this.origin}
             @input=${(e: Event) => this.handleInput('origin', (e.target as HTMLInputElement).value)}
             @focus=${() => this.activeField = 'origin'}
@@ -159,7 +184,7 @@ export class RouteInput extends LitElement {
           <label>Destination</label>
           <input
             type="text"
-            placeholder="TLV"
+            placeholder="BLR"
             .value=${this.destination}
             @input=${(e: Event) => this.handleInput('dest', (e.target as HTMLInputElement).value)}
             @focus=${() => this.activeField = 'dest'}

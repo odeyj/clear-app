@@ -130,3 +130,18 @@ export function polylineToGeoJSON(polyline: [number, number][]): GeoJSON.LineStr
     coordinates: polyline.map(([lat, lon]) => [lon, lat]),
   };
 }
+
+/** Join two LineStrings (e.g. two flight legs through a hub). Skips duplicate vertex at the join. */
+export function concatGeoJSONLineStrings(a: GeoJSON.LineString, b: GeoJSON.LineString): GeoJSON.LineString {
+  const c1 = a.coordinates;
+  const c2 = b.coordinates;
+  if (c1.length === 0) return b;
+  if (c2.length === 0) return a;
+  const last = c1[c1.length - 1];
+  const first = c2[0];
+  const skipFirst = last[0] === first[0] && last[1] === first[1] ? 1 : 0;
+  return {
+    type: 'LineString',
+    coordinates: [...c1, ...c2.slice(skipFirst)],
+  };
+}

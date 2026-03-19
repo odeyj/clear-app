@@ -1,15 +1,12 @@
-import { LitElement, html, css, unsafeCSS } from 'lit';
-import leafletCss from 'leaflet/dist/leaflet.css?raw';
+import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { sharedStyles } from './styles/shared-styles.js';
 import { StoreController } from './state/store-controller.js';
 import { store } from './state/store.js';
 import { api } from './services/api-client.js';
-import type { ScoredRoute, ScanResponse } from '@frcs/shared';
 
 // Import all components
 import './components/scanner/route-input.js';
-import './components/scanner/scan-results.js';
 import './components/map/route-map.js';
 import './components/risk/risk-dashboard.js';
 import './components/alternatives/safe-alternatives.js';
@@ -24,8 +21,7 @@ export class AppShell extends LitElement {
   @state() private selectedRouteIndex = 0;
   private eventSource: EventSource | null = null;
 
-  /* Leaflet in index.html does not apply inside shadow DOM; bundle its CSS here */
-  static styles = [sharedStyles, unsafeCSS(leafletCss), css`
+  static styles = [sharedStyles, css`
     :host {
       display: block;
       min-height: 100vh;
@@ -82,6 +78,21 @@ export class AppShell extends LitElement {
     }
     .section {
       margin-bottom: var(--space-6, 1.5rem);
+    }
+    .map-results-placeholder {
+      min-height: 400px;
+      height: 400px;
+      box-sizing: border-box;
+      border: 1px dashed var(--color-border, #e0e0e0);
+      border-radius: var(--radius-lg, 8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      text-align: center;
+      font-size: var(--text-sm, 0.875rem);
+      color: var(--color-text-muted, #999);
+      background: var(--color-surface, #f8f8f8);
     }
     .error {
       padding: var(--space-4, 1rem);
@@ -145,11 +156,8 @@ export class AppShell extends LitElement {
     }
   }
 
-  private handleRouteSelect(e: CustomEvent<ScoredRoute>) {
-    const result = this.ctrl.state.scanResult;
-    if (!result) return;
-    const idx = result.routes.findIndex(r => r.id === e.detail.id);
-    if (idx >= 0) this.selectedRouteIndex = idx;
+  private handleItinerarySelect(e: CustomEvent<{ index: number }>) {
+    this.selectedRouteIndex = e.detail.index;
   }
 
   private setView(view: 'scanner' | 'airlines' | 'anomalies') {
@@ -159,6 +167,7 @@ export class AppShell extends LitElement {
   render() {
     const s = this.ctrl.state;
     const result = s.scanResult;
+    const useItineraryAlts = Boolean(result && result.alternatives.length > 0);
 
     return html`
       <header>
@@ -182,26 +191,40 @@ export class AppShell extends LitElement {
           ${s.scanLoading ? html`<loading-spinner>Analyzing route...</loading-spinner>` : ''}
           ${s.scanError ? html`<div class="error">${s.scanError}</div>` : ''}
 
-          ${result ? html`
-            <div class="section">
-              <route-map
-                .routes=${result.routes}
-                .origin=${{ lat: result.origin.lat, lon: result.origin.lon, code: result.origin.code }}
-                .destination=${{ lat: result.destination.lat, lon: result.destination.lon, code: result.destination.code }}
-                .selectedRouteIndex=${this.selectedRouteIndex}
-              ></route-map>
-            </div>
-          ` : ''}
+          <div class="section maps-section">
+            ${result
+              ? html`
+                  <route-map
+                    .alternatives=${useItineraryAlts ? result.alternatives : []}
+                    .routes=${useItineraryAlts ? [] : result.routes}
+                    .origin=${{ lat: result.origin.lat, lon: result.origin.lon, code: result.origin.code }}
+                    .destination=${{
+                      lat: result.destination.lat,
+                      lon: result.destination.lon,
+                      code: result.destination.code,
+                    }}
+                    .selectedRouteIndex=${this.selectedRouteIndex}
+                  ></route-map>
+                `
+              : html`
+                  <div class="map-results-placeholder">
+                    Scan a route to see itinerary paths and conflict context on the map.
+                  </div>
+                `}
+          </div>
+
 
           ${s.activeView === 'scanner' && result ? html`
             <div class="section">
-              <scan-results .routes=${result.routes} @route-select=${this.handleRouteSelect}></scan-results>
+              <safe-alternatives
+                .alternatives=${result.alternatives}
+                .fallbackRoutes=${result.routes}
+                .selectedIndex=${this.selectedRouteIndex}
+                @itinerary-select=${this.handleItinerarySelect}
+              ></safe-alternatives>
             </div>
             <div class="section">
               <risk-dashboard .risk=${result.riskScore}></risk-dashboard>
-            </div>
-            <div class="section">
-              <safe-alternatives .alternatives=${result.alternatives}></safe-alternatives>
             </div>
           ` : ''}
 
