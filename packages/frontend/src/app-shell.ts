@@ -14,6 +14,7 @@ import './components/advisory/advisory-sidebar.js';
 import './components/anomaly/anomaly-list.js';
 import './components/airline/airline-profile.js';
 import './components/common/loading-spinner.js';
+import './components/assistant/avatar-assistant.js';
 
 @customElement('app-shell')
 export class AppShell extends LitElement {
@@ -421,6 +422,7 @@ export class AppShell extends LitElement {
           </div>
         </div>
       ` : ''}
+      <avatar-assistant></avatar-assistant>
     `;
   }
 }
